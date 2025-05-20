@@ -1,6 +1,6 @@
 # 🧾 Tally Helper
 
-**Merged Tally Helper** is a web application built with **Next.js 14 (App Router)** designed to assist in merging and analyzing Tally-based financial data. It includes authentication, SQL integration, UI components, and enhanced productivity tools for data entry and analysis.
+**Tally Helper** is a web application built with **Next.js 14 (App Router)** designed to assist in merging and analyzing Tally-based financial data. It includes authentication, SQL integration, UI components, and enhanced productivity tools for data entry and analysis.
 
 ---
 
