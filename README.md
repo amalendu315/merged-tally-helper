@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧾 Merged Tally Helper
 
-## Getting Started
+**Merged Tally Helper** is a web application built with **Next.js 14 (App Router)** designed to assist in merging and analyzing Tally-based financial data. It includes authentication, SQL integration, UI components, and enhanced productivity tools for data entry and analysis.
 
-First, run the development server:
+---
+
+## 🚀 Features
+
+- 🧩 Modular file structure using `app`, `components`, and `lib`
+- 🔐 Authentication via `next-auth`
+- 🗃️ Microsoft SQL Server integration using `mssql`
+- 🎨 UI powered by `TailwindCSS` and `ShadCN` components
+- 📅 Date handling with `date-fns`
+- 📦 Axios for API calls
+- 🧪 Type-safe with TypeScript
+
+---
+
+## 📂 Tech Stack
+
+- **Frontend:** Next.js (App Router), TypeScript, TailwindCSS, ShadCN UI
+- **Backend:** Node.js, MSSQL (via `mssql`)
+- **Authentication:** NextAuth.js
+- **Build Tools:** pnpm, PostCSS
+
+---
+
+## 🛠️ Installation
+
+Clone the repository and install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/yourusername/merged_tally_helper.git
+cd merged_tally_helper
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set up your environment variables by creating a `.env.local` file:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Update the necessary values like database connection strings, NextAuth secrets, etc.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🧪 Development
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Start the development server:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm dev
+```
 
-## Deploy on Vercel
+Visit `http://localhost:3000` to view the application.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📦 Build for Production
+
+To build and start in production mode:
+
+```bash
+pnpm build
+pnpm start
+```
+
+---
+
+## 🔎 Linting
+
+Run code quality checks:
+
+```bash
+pnpm lint
+```
+
+---
+
+## 📁 Project Structure
+
+```
+merged_tally_helper/
+├── app/                 # App Router pages
+├── components/          # UI Components
+├── context/             # React contexts
+├── constants/           # Constant values and enums
+├── lib/                 # Utility libraries and helpers
+├── public/              # Static assets
+├── types/               # TypeScript types and interfaces
+├── .env.local           # Environment variables
+├── package.json         # Project metadata and scripts
+└── README.md            # Project documentation
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) — feel free to use and modify it!
