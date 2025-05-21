@@ -29,11 +29,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-gray-100">
       {/* Illustration */}
-      <div className="hidden md:flex items-center justify-center bg-blue-50">
+      <div className="flex items-center justify-center p-6 bg-blue-50 dark:bg-gray-800">
         <img
           src="/illustrationlog.svg"
           alt="Illustration"
-          className="w-2/3 h-auto"
+          className="w-2/3 max-w-xs md:max-w-md lg:max-w-lg h-auto"
         />
       </div>
 
