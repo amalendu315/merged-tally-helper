@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import VoucherList from "./VoucherList";
+import UploadProgressModal from "../shared/UploadSummaryLayout";
 
 export default function NepalVoucherForm() {
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
@@ -17,9 +18,22 @@ export default function NepalVoucherForm() {
   const [loading, setLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
 
+  const [modalOpen, setModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStats, setUploadStats] = useState({
+    total: 0,
+    successful: 0,
+    failed: 0,
+    retried: 0,
+  });
+
   const { totalSum, setTotalSum, setSelectedInvoiceNos, selectedInvoiceNos } =
     useVoucherSelection();
 
+  // Track last voucher number for numbering Sales vouchers
+  const [lastUsedVoucherNumber, setLastUsedVoucherNumber] = useState(0);
+
+  // Fetch last sync log info on mount to get lastUsedVoucherNumber
   useEffect(() => {
     const loadSyncMeta = async () => {
       try {
@@ -35,9 +49,18 @@ export default function NepalVoucherForm() {
     loadSyncMeta();
   }, []);
 
+  // Update voucher number from sync metadata on change
+  useEffect(() => {
+    if (syncMeta?.last_updated_voucher_number) {
+      setLastUsedVoucherNumber(syncMeta.last_updated_voucher_number);
+    }
+  }, [syncMeta]);
+
+  // Utility for consistent date formatting
   const formatDate = (dateStr?: string) =>
     dateStr ? format(new Date(dateStr), "yyyy-MM-dd") : "N/A";
 
+  // Fetch vouchers from API filtered by date and Nepal criteria
   const handleFetch = async () => {
     if (!dateRange.start || !dateRange.end) {
       toast.error("Please select both start and end date.");
@@ -55,13 +78,18 @@ export default function NepalVoucherForm() {
         return;
       }
 
+      const testKeywords = ["test", "dummy", "demo", "xyz", "airline test"];
+
       const sorted = [...data.data]
         .filter((v) => {
           const country = v.Country?.toLowerCase() || "";
           const main = v.CountryMain?.toLowerCase() || "";
           const state = v.State?.toLowerCase() || "";
+          const accountName = v.AccountName?.toLowerCase() || "";
+
           return (
             v.Types === "Invoice" &&
+            !testKeywords.some((keyword) => accountName.includes(keyword)) &&
             (country === "nepal" ||
               main === "nepal" ||
               v.CountryID === 4 ||
@@ -87,7 +115,9 @@ export default function NepalVoucherForm() {
       setLoading(false);
     }
   };
+  
 
+  // Export selected vouchers to Excel, or all if none selected
   const handleExport = () => {
     if (!vouchers.length) return toast.error("No vouchers to export.");
 
@@ -115,102 +145,255 @@ export default function NepalVoucherForm() {
     toast.success("Exported to Excel");
   };
 
-  const handlePushToCloud = async () => {
-    if (!selectedInvoiceNos.length)
-      return toast.error("Select vouchers to push");
+  // Submit vouchers to backend endpoint, type is 'sale' or 'purchase'
+  // const submitVouchers = async (
+  //   dataForCloud: any[],
+  //   type: "sale" | "purchase"
+  // ) => {
+  //   try {
+  //     const response = await fetch(`/api/${type}`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({ data: dataForCloud }),
+  //     });
 
-    setPushing(true);
+  //     if (!response.ok) {
+  //       const errorText = await response.text();
+  //       console.error(
+  //         `${type.toUpperCase()} server error:`,
+  //         response.status,
+  //         errorText
+  //       );
+  //       throw new Error(
+  //         `${type.toUpperCase()} server responded with status ${
+  //           response.status
+  //         }`
+  //       );
+  //     }
+  //     toast.success(`${type.toUpperCase()} vouchers submitted successfully!`);
+  //   } catch (error) {
+  //     console.error(`Error submitting ${type} data:`, error);
+  //     toast.error(`Error Submitting ${type.toUpperCase()} Data To Cloud!`);
+  //     throw error; // throw so calling function knows failure
+  //   }
+  // };
+
+  const submitWithRetry = async (
+    payload: any[],
+    type: "sale" | "purchase",
+    maxRetries = 2
+  ): Promise<{ success: boolean; retries: number }> => {
+    let attempt = 0;
+    while (attempt <= maxRetries) {
+      try {
+        const response = await fetch(`/api/${type}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: payload }),
+        });
+        if (!response.ok) {
+          throw new Error(`Status ${response.status}`);
+        }
+        return { success: true, retries: attempt };
+      } catch (err) {
+        attempt++;
+        if (attempt > maxRetries) {
+          return { success: false, retries: attempt - 1 };
+        }
+        // Wait before retrying (exponential backoff)
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+    return { success: false, retries: maxRetries };
+  };
+
+  // Prepare Purchase vouchers data batch
+  const preparePurchaseData = (entries: any[], exchangeRate: number) => {
+    return entries.map((v) => {
+      const convertedPurchaseAmountNPR = (
+        v.FinalRate *
+        v.pax *
+        exchangeRate
+      ).toFixed(2);
+
+      return {
+        branchName: "AirIQ Nepal",
+        vouchertype: "Purchase",
+        voucherno: `AQNP/${v.InvoiceNo}`,
+        voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
+        narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}`,
+        ledgerAllocation: [
+          {
+            lineno: 1,
+            ledgerName: "Air IQ",
+            ledgerAddress: "Sevoke Road, Siliguri, West Bengal - 734001",
+            amount: convertedPurchaseAmountNPR,
+            drCr: "cr",
+            description: [],
+          },
+          {
+            lineno: 2,
+            ledgerName: "Domestic Base Fare Purchase",
+            amount: convertedPurchaseAmountNPR,
+            drCr: "dr",
+            description: [],
+          },
+        ],
+      };
+    });
+  };
+
+  // Prepare Sales vouchers data batch & update voucher numbering state
+  const prepareSalesData = (entries: any[], exchangeRate: number) => {
+    let voucherNumber = lastUsedVoucherNumber;
+
+    const salesData = entries.map((v) => {
+      voucherNumber += 1;
+      const formattedVoucherNumber = `AQNS/${voucherNumber
+        .toString()
+        .padStart(voucherNumber >= 1000 ? 4 : 3, "0")}`; // Serial Voucher Number
+      const convertedAmountNPR = (v.FinalRate * v.pax * exchangeRate).toFixed(
+        2
+      );
+
+      return {
+        branchName: "AirIQ Nepal",
+        vouchertype: "Sales",
+        voucherno: formattedVoucherNumber, // Serial Voucher Number used here
+        voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
+        narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}, AIRLINE_CODE :- ${v.AirlineCode}, SECTOR :- ${v.FromSector} ${v.ToSectors}`,
+        ledgerAllocation: [
+          {
+            lineno: 1,
+            ledgerName: v.AccountName,
+            ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
+              v.CityName ?? ""
+            } - ${v.Pin ?? ""}`,
+            amount: convertedAmountNPR,
+            drCr: "dr",
+            description: [],
+          },
+          {
+            lineno: 2,
+            ledgerName: "Domestic Base Fare",
+            amount: convertedAmountNPR,
+            drCr: "cr",
+            description: [
+              v.AirlineCode,
+              "Sector",
+              `${v.FromSector} ${v.ToSectors}`,
+            ],
+          },
+        ],
+      };
+    });
+
+    setLastUsedVoucherNumber(voucherNumber); // Update voucher number for next batch
+    return salesData;
+  };
+  
+
+  // Fetch exchange rate once per push
+  const fetchExchangeRate = async () => {
     try {
-      const selected = vouchers.filter((v) => {
-        const inSelection = selectedInvoiceNos.includes(v.InvoiceNo);
-        const isDuplicate =
-          syncMeta?.start_voucher &&
-          syncMeta?.end_voucher &&
-          v.InvoiceNo >= syncMeta.start_voucher &&
-          v.InvoiceNo <= syncMeta.end_voucher;
+      const response = await fetch(
+        "https://api.exchangerate-api.com/v4/latest/INR"
+      );
+      const data = await response.json();
+      return data.rates["NPR"] || 1.6; // fallback
+    } catch (error) {
+      console.error("Error fetching exchange rate:", error);
+      return 1.6;
+    }
+  };
 
-        if (inSelection && isDuplicate) {
-          toast.error(`Voucher ${v.InvoiceNo} already pushed!`);
-          return false;
-        }
+  // Main push function that handles batching and sync log update
+  const handlePushToCloud = async () => {
+    if (!selectedInvoiceNos.length) {
+      toast.error("Select vouchers to push");
+      return;
+    }
+    setModalOpen(true);
+    setUploading(true);
+    setPushing(true);
 
-        return inSelection;
-      });
+    try {
+      const exchangeRate = await fetchExchangeRate();
 
-      const prepareData = (entries: any[]): any[] => {
-        return entries.map((v) => ({
-          branchName: "AirIQ Nepal",
-          vouchertype: "Sales",
-          voucherno: `${v.FinPrefix}${v.InvoiceNo}`,
-          voucherdate: v.SaleEntryDate.split("T")[0].replace(/-/g, "/"),
-          narration: `${v.Pnr} | PAX :- ${v.pax}`,
-          ledgerAllocation: [
-            {
-              lineno: 1,
-              ledgerName: v.AccountName,
-              ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
-                v.CityName ?? ""
-              } - ${v.Pin ?? ""}`,
-              amount: (v.FinalRate * v.pax).toFixed(2),
-              drCr: "dr",
-            },
-            {
-              lineno: 2,
-              ledgerName: "Domestic Base Fare",
-              amount: (v.FinalRate * v.pax).toFixed(2),
-              drCr: "cr",
-            },
-          ],
-        }));
-      };
+      // Filter selected vouchers
+      const selected = vouchers.filter((v) =>
+        selectedInvoiceNos.includes(v.InvoiceNo)
+      );
 
-      const pushToCloud = async (
-        payload: any[],
-        attempt = 1
-      ): Promise<boolean> => {
-        try {
-          const res = await fetch("/api/cloud", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: payload }),
-          });
-          return res.ok;
-        } catch {
-          if (attempt < 3) {
-            await new Promise((r) => setTimeout(r, 2000 * attempt));
-            return pushToCloud(payload, attempt + 1);
-          }
-          return false;
-        }
-      };
+      let successfulUploads = 0;
+      let failedUploads = 0;
+      let totalRetries = 0;
 
       const batchSize = 50;
-      const currentDate = new Date().toISOString().split("T")[0];
+
+      setUploadStats({
+        total: selected.length * 2, // because purchase + sales per voucher
+        successful: 0,
+        failed: 0,
+        retried: 0,
+      });
 
       for (let i = 0; i < selected.length; i += batchSize) {
         const batch = selected.slice(i, i + batchSize);
-        const payload = prepareData(batch);
 
-        if (!payload.length) continue;
+        const purchasePayload = preparePurchaseData(batch, exchangeRate);
+        const salesPayload = prepareSalesData(batch, exchangeRate);
 
-        const success = await pushToCloud(payload);
-        if (!success) {
-          toast.error(`Error submitting batch ${i + 1} to cloud`);
-          break;
-        }
+        console.log("Purchase Payload", purchasePayload);
+        console.log("Sales Payload", salesPayload);
 
-        toast.success(`Batch ${i / batchSize + 1} Vouchers Pushed!`);
+        // submit purchase with retry
+        // const purchaseResult = await submitWithRetry(
+        //   purchasePayload,
+        //   "purchase"
+        // );
+        // // update stats immediately
+        // if (purchaseResult.success) successfulUploads += purchasePayload.length;
+        // else failedUploads += purchasePayload.length;
+        // totalRetries += purchaseResult.retries;
+
+        // setUploadStats({
+        //   total: selected.length * 2,
+        //   successful: successfulUploads,
+        //   failed: failedUploads,
+        //   retried: totalRetries,
+        // });
+
+        // // submit sales with retry
+        // const salesResult = await submitWithRetry(salesPayload, "sale");
+        // if (salesResult.success) successfulUploads += salesPayload.length;
+        // else failedUploads += salesPayload.length;
+        // totalRetries += salesResult.retries;
+
+        // setUploadStats({
+        //   total: selected.length * 2,
+        //   successful: successfulUploads,
+        //   failed: failedUploads,
+        //   retried: totalRetries,
+        // });
       }
 
+      
+      // Update sync log metadata on backend
+      const currentDate = new Date().toISOString().split("T")[0];
       const body = {
         region: "nepal",
         voucher_type: "sales",
         submission_date: currentDate,
-        last_updated_date: selected.at(-1)?.InvoiceEntryDate?.split("T")[0],
+        last_updated_date:
+          selected.at(-1)?.InvoiceEntryDate?.split("T")[0] || "",
         start_date: dateRange.start,
         end_date: dateRange.end,
-        start_voucher: selected.at(0)?.InvoiceNo,
-        end_voucher: selected.at(-1)?.InvoiceNo,
+        start_voucher: selected.at(0)?.VoucherNo || 0, // Use the serial voucher number here
+        end_voucher: selected.at(-1)?.VoucherNo || 0, // Use the serial voucher number here
+        last_voucher_number: lastUsedVoucherNumber,
       };
 
       await fetch("/api/sync-log", {
@@ -218,8 +401,15 @@ export default function NepalVoucherForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-    } catch (err) {
-      console.error(err);
+      
+      setUploading(false);
+
+      toast.success("All vouchers submitted successfully!");
+
+      // Clear selection after successful push (optional UX improvement)
+      setSelectedInvoiceNos([]);
+    } catch (error) {
+      console.error(error);
       toast.error("Failed to push to cloud");
     } finally {
       setPushing(false);
@@ -227,128 +417,147 @@ export default function NepalVoucherForm() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6">
-      {/* LEFT PANEL */}
-      <Card className="border border-purple-100 shadow-sm bg-gradient-to-br from-white to-purple-50">
-        <CardHeader>
-          <CardTitle className="text-base font-medium text-purple-700">
-            🔄 Nepal Sync Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-0 text-sm text-gray-700">
-          {[
-            {
-              label: "Submission Date",
-              value: formatDate(syncMeta?.submission_date),
-              color: "text-green-600",
-            },
-            {
-              label: "Last Updated Voucher",
-              value: formatDate(syncMeta?.last_updated_date),
-            },
-            {
-              label: "Voucher Range",
-              value: `#${syncMeta?.start_voucher} → #${syncMeta?.end_voucher}`,
-            },
-            {
-              label: "Date Range",
-              value: `${formatDate(syncMeta?.start_date)} → ${formatDate(
-                syncMeta?.end_date
-              )}`,
-            },
-          ].map(({ label, value, color }) => (
-            <div key={label}>
-              <p className={`text-xs font-medium text-gray-500`}>{label}</p>
-              <p
-                className={`text-base font-semibold  ${
-                  color ? color : "text-black"
-                }`}
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6">
+        {/* LEFT PANEL */}
+        <Card className="border border-purple-100 shadow-sm bg-gradient-to-br from-white to-purple-50">
+          <CardHeader>
+            <CardTitle className="text-base font-medium text-purple-700">
+              🔄 Nepal Sync Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-0 text-sm text-gray-700">
+            {[
+              {
+                label: "Submission Date",
+                value: formatDate(syncMeta?.submission_date),
+                color: "text-green-600",
+              },
+              {
+                label: "Last Updated Voucher",
+                value: formatDate(syncMeta?.last_updated_date),
+              },
+              {
+                label: "Voucher Range",
+                value: `#${syncMeta?.start_voucher} → #${syncMeta?.end_voucher}`,
+              },
+              {
+                label: "Date Range",
+                value: `${formatDate(syncMeta?.start_date)} → ${formatDate(
+                  syncMeta?.end_date
+                )}`,
+              },
+            ].map(({ label, value, color }) => (
+              <div key={label}>
+                <p className={`text-xs font-medium text-gray-500`}>{label}</p>
+                <p
+                  className={`text-base font-semibold  ${
+                    color ? color : "text-black"
+                  }`}
+                >
+                  {value}
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* RIGHT PANEL */}
+        <Card className="p-2 border border-purple-100 shadow-sm bg-gradient-to-br from-white to-purple-50">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-purple-800">
+              Voucher Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, start: e.target.value })
+                }
+              />
+              <Input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) =>
+                  setDateRange({ ...dateRange, end: e.target.value })
+                }
+              />
+              <Button
+                className="w-full"
+                onClick={handleFetch}
+                disabled={loading || !dateRange.start || !dateRange.end}
               >
-                {value}
-              </p>
+                {loading ? "Fetching..." : "Fetch Entries"}
+              </Button>
             </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* RIGHT PANEL */}
-      <Card className="p-2 border border-purple-100 shadow-sm bg-gradient-to-br from-white to-purple-50">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-purple-800">
-            Voucher Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) =>
-                setDateRange({ ...dateRange, start: e.target.value })
-              }
-            />
-            <Input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) =>
-                setDateRange({ ...dateRange, end: e.target.value })
-              }
-            />
-            <Button className="w-full" onClick={handleFetch} disabled={loading}>
-              {loading ? "Fetching..." : "Fetch Entries"}
-            </Button>
-          </div>
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button variant="outline" onClick={handleExport}>
-              Export to Excel
-            </Button>
-            <Button onClick={handlePushToCloud} disabled={pushing}>
-              {pushing ? "Submitting..." : "Submit to Cloud"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SUMMARY */}
-      <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border border-purple-100 shadow-sm bg-purple-50">
-          <CardHeader>
-            <CardTitle className="text-base text-purple-700">
-              📦 Total Fetched
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-purple-700">
-            {vouchers.length} Vouchers
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={!vouchers.length}
+              >
+                Export to Excel
+              </Button>
+              <Button
+                onClick={handlePushToCloud}
+                disabled={pushing || !selectedInvoiceNos.length}
+              >
+                {pushing ? "Submitting..." : "Submit to Cloud"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
-        <Card className="border border-blue-100 shadow-sm bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-base text-blue-700">
-              ✅ Selected
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-blue-700">
-            {selectedInvoiceNos.length} Selected
-          </CardContent>
-        </Card>
-        <Card className="border border-green-100 shadow-sm bg-green-50">
-          <CardHeader>
-            <CardTitle className="text-base text-green-800">
-              💰 Total Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold text-green-700">
-            ₹ {totalSum.toLocaleString("en-IN")}
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* TABLE */}
-      {vouchers.length > 0 && (
-        <div className="md:col-span-2 mt-6">
-          <VoucherList vouchers={vouchers} />
+        {/* SUMMARY */}
+        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="border border-purple-100 shadow-sm bg-purple-50">
+            <CardHeader>
+              <CardTitle className="text-base text-purple-700">
+                📦 Total Fetched
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold text-purple-700">
+              {vouchers.length} Vouchers
+            </CardContent>
+          </Card>
+          <Card className="border border-blue-100 shadow-sm bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-base text-blue-700">
+                ✅ Selected
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold text-blue-700">
+              {selectedInvoiceNos.length} Selected
+            </CardContent>
+          </Card>
+          <Card className="border border-green-100 shadow-sm bg-green-50">
+            <CardHeader>
+              <CardTitle className="text-base text-green-800">
+                💰 Total Value
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xl font-semibold text-green-700">
+              ₹ {totalSum.toLocaleString("en-IN")}
+            </CardContent>
+          </Card>
         </div>
-      )}
-    </div>
+
+        {/* TABLE */}
+        {vouchers.length > 0 && (
+          <div className="md:col-span-2 mt-6">
+            <VoucherList vouchers={vouchers} />
+          </div>
+        )}
+      </div>
+      <UploadProgressModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        stats={uploadStats}
+        uploading={uploading}
+      />
+    </>
   );
 }
