@@ -349,35 +349,35 @@ export default function NepalVoucherForm() {
         console.log("Purchase Payload", purchasePayload);
         console.log("Sales Payload", salesPayload);
 
-        // submit purchase with retry
-        // const purchaseResult = await submitWithRetry(
-        //   purchasePayload,
-        //   "purchase"
-        // );
-        // // update stats immediately
-        // if (purchaseResult.success) successfulUploads += purchasePayload.length;
-        // else failedUploads += purchasePayload.length;
-        // totalRetries += purchaseResult.retries;
+        //submit purchase with retry
+        const purchaseResult = await submitWithRetry(
+          purchasePayload,
+          "purchase"
+        );
+        // update stats immediately
+        if (purchaseResult.success) successfulUploads += purchasePayload.length;
+        else failedUploads += purchasePayload.length;
+        totalRetries += purchaseResult.retries;
 
-        // setUploadStats({
-        //   total: selected.length * 2,
-        //   successful: successfulUploads,
-        //   failed: failedUploads,
-        //   retried: totalRetries,
-        // });
+        setUploadStats({
+          total: selected.length * 2,
+          successful: successfulUploads,
+          failed: failedUploads,
+          retried: totalRetries,
+        });
 
-        // // submit sales with retry
-        // const salesResult = await submitWithRetry(salesPayload, "sale");
-        // if (salesResult.success) successfulUploads += salesPayload.length;
-        // else failedUploads += salesPayload.length;
-        // totalRetries += salesResult.retries;
+        // submit sales with retry
+        const salesResult = await submitWithRetry(salesPayload, "sale");
+        if (salesResult.success) successfulUploads += salesPayload.length;
+        else failedUploads += salesPayload.length;
+        totalRetries += salesResult.retries;
 
-        // setUploadStats({
-        //   total: selected.length * 2,
-        //   successful: successfulUploads,
-        //   failed: failedUploads,
-        //   retried: totalRetries,
-        // });
+        setUploadStats({
+          total: selected.length * 2,
+          successful: successfulUploads,
+          failed: failedUploads,
+          retried: totalRetries,
+        });
       }
 
       
