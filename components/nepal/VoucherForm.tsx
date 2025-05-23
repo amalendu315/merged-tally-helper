@@ -442,16 +442,16 @@ export default function NepalVoucherForm() {
                 value: formatDate(syncMeta?.last_updated_date),
               },
               {
-                label: "Last Updated Voucher Number",
+                label: "Last Updated Sale Voucher Number",
                 value: syncMeta?.last_updated_voucher_number,
                 color: "text-blue-600",
               },
               {
-                label: "Voucher Range",
+                label: "Invoice Number Range",
                 value: `#${syncMeta?.start_voucher} → #${syncMeta?.end_voucher}`,
               },
               {
-                label: "Date Range",
+                label: "Invoice Entry Date Range",
                 value: `${formatDate(syncMeta?.start_date)} → ${formatDate(
                   syncMeta?.end_date
                 )}`,
