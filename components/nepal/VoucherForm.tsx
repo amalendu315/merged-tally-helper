@@ -380,7 +380,11 @@ export default function NepalVoucherForm() {
         });
       }
 
-      
+      //stop updating stats if all are unsuccessful
+      if (failedUploads === selected.length * 2) {
+        toast.error("All vouchers failed to push");
+        return;
+      }      
       // Update sync log metadata on backend
       const currentDate = new Date().toISOString().split("T")[0];
       const body = {
@@ -388,11 +392,11 @@ export default function NepalVoucherForm() {
         voucher_type: "sales",
         submission_date: currentDate,
         last_updated_date:
-          selected.at(-1)?.InvoiceEntryDate?.split("T")[0] || "",
+          selected.at(-1)?.SaleEntryDate?.split("T")[0] || "",
         start_date: dateRange.start,
         end_date: dateRange.end,
-        start_voucher: selected.at(0)?.VoucherNo || 0, // Use the serial voucher number here
-        end_voucher: selected.at(-1)?.VoucherNo || 0, // Use the serial voucher number here
+        start_voucher: selected.at(0)?.InvoiceNo || 0, // Use the serial voucher number here
+        end_voucher: selected.at(-1)?.InvoiceNo || 0, // Use the serial voucher number here
         last_voucher_number: lastUsedVoucherNumber,
       };
 
@@ -434,8 +438,13 @@ export default function NepalVoucherForm() {
                 color: "text-green-600",
               },
               {
-                label: "Last Updated Voucher",
+                label: "Last Updated Sale Entry Date",
                 value: formatDate(syncMeta?.last_updated_date),
+              },
+              {
+                label: "Last Updated Voucher Number",
+                value: syncMeta?.last_updated_voucher_number,
+                color: "text-blue-600",
               },
               {
                 label: "Voucher Range",

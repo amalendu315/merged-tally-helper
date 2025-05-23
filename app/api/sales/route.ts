@@ -35,8 +35,11 @@ export async function GET(request: Request) {
     };
 
     const response = await axios.request(config);
-    if (response?.data?.code === "404") {
-      return NextResponse.json({ error: "No Data Found" }, { status: 404 });
+    if (response.status !== 200) {
+      return NextResponse.json(
+        { error: "Failed to fetch sales entries" },
+        { status: response.status }
+      );
     }
     return NextResponse.json(response.data);
   } catch (error) {
