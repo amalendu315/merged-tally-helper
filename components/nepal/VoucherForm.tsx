@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useVoucherSelection } from "@/context/VoucherSelectionContext";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
-import { format } from "date-fns";
+import { format, set } from "date-fns";
 import VoucherList from "./VoucherList";
 import UploadProgressModal from "../shared/UploadSummaryLayout";
 
@@ -32,6 +32,7 @@ export default function NepalVoucherForm() {
 
   // Track last voucher number for numbering Sales vouchers
   const [lastUsedVoucherNumber, setLastUsedVoucherNumber] = useState(0);
+  const lastVoucherRef = useRef(0); // <--- NEW
 
   // Fetch last sync log info on mount to get lastUsedVoucherNumber
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function NepalVoucherForm() {
   useEffect(() => {
     if (syncMeta?.last_updated_voucher_number) {
       setLastUsedVoucherNumber(syncMeta.last_updated_voucher_number);
+      lastVoucherRef.current = syncMeta.last_updated_voucher_number;
     }
   }, [syncMeta]);
 
@@ -115,7 +117,6 @@ export default function NepalVoucherForm() {
       setLoading(false);
     }
   };
-  
 
   // Export selected vouchers to Excel, or all if none selected
   const handleExport = () => {
@@ -247,13 +248,11 @@ export default function NepalVoucherForm() {
 
   // Prepare Sales vouchers data batch & update voucher numbering state
   const prepareSalesData = (entries: any[], exchangeRate: number) => {
-    let voucherNumber = lastUsedVoucherNumber;
-
     const salesData = entries.map((v) => {
-      voucherNumber += 1;
-      const formattedVoucherNumber = `AQNS/${voucherNumber
+      lastVoucherRef.current += 1;
+      const formattedVoucherNumber = `AQNS/${lastVoucherRef.current
         .toString()
-        .padStart(voucherNumber >= 1000 ? 4 : 3, "0")}`; // Serial Voucher Number
+        .padStart(lastVoucherRef.current >= 1000 ? 4 : 3, "0")}`;
       const convertedAmountNPR = (v.FinalRate * v.pax * exchangeRate).toFixed(
         2
       );
@@ -261,7 +260,7 @@ export default function NepalVoucherForm() {
       return {
         branchName: "AirIQ Nepal",
         vouchertype: "Sales",
-        voucherno: formattedVoucherNumber, // Serial Voucher Number used here
+        voucherno: formattedVoucherNumber,
         voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
         narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}, AIRLINE_CODE :- ${v.AirlineCode}, SECTOR :- ${v.FromSector} ${v.ToSectors}`,
         ledgerAllocation: [
@@ -290,7 +289,6 @@ export default function NepalVoucherForm() {
       };
     });
 
-    setLastUsedVoucherNumber(voucherNumber); // Update voucher number for next batch
     return salesData;
   };
   
@@ -327,6 +325,23 @@ export default function NepalVoucherForm() {
         selectedInvoiceNos.includes(v.InvoiceNo)
       );
 
+      const pushedInvoiceRange = {
+        start: syncMeta?.start_voucher,
+        end: syncMeta?.end_voucher,
+      };
+
+      const duplicatePushes = selectedInvoiceNos.filter(
+        (no) => no >= pushedInvoiceRange.start && no <= pushedInvoiceRange.end
+      );
+
+      if (duplicatePushes.length > 0) {
+        toast.error(
+          `Already pushed vouchers selected: ${duplicatePushes.join(", ")}`
+        );
+        setUploading(false);
+        return;
+      }
+
       let successfulUploads = 0;
       let failedUploads = 0;
       let totalRetries = 0;
@@ -354,7 +369,7 @@ export default function NepalVoucherForm() {
           purchasePayload,
           "purchase"
         );
-        // update stats immediately
+        // // update stats immediately
         if (purchaseResult.success) successfulUploads += purchasePayload.length;
         else failedUploads += purchasePayload.length;
         totalRetries += purchaseResult.retries;
@@ -366,7 +381,7 @@ export default function NepalVoucherForm() {
           retried: totalRetries,
         });
 
-        // submit sales with retry
+        // // submit sales with retry
         const salesResult = await submitWithRetry(salesPayload, "sale");
         if (salesResult.success) successfulUploads += salesPayload.length;
         else failedUploads += salesPayload.length;
@@ -383,29 +398,30 @@ export default function NepalVoucherForm() {
       //stop updating stats if all are unsuccessful
       if (failedUploads === selected.length * 2) {
         toast.error("All vouchers failed to push");
+        setUploading(false);
         return;
-      }      
-      // Update sync log metadata on backend
+      }
+      // // Update sync log metadata on backend
       const currentDate = new Date().toISOString().split("T")[0];
       const body = {
         region: "nepal",
         voucher_type: "sales",
         submission_date: currentDate,
-        last_updated_date:
-          selected.at(-1)?.SaleEntryDate?.split("T")[0] || "",
+        last_updated_date: selected.at(-1)?.SaleEntryDate?.split("T")[0] || "",
         start_date: dateRange.start,
         end_date: dateRange.end,
-        start_voucher: selected.at(0)?.InvoiceNo || 0, // Use the serial voucher number here
-        end_voucher: selected.at(-1)?.InvoiceNo || 0, // Use the serial voucher number here
-        last_voucher_number: lastUsedVoucherNumber,
+        start_voucher: selected.at(0)?.InvoiceNo || 0,
+        end_voucher: selected.at(-1)?.InvoiceNo || 0,
+        last_voucher_number: lastVoucherRef.current, // <--- use latest from ref
       };
+      
 
       await fetch("/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      
+
       setUploading(false);
 
       toast.success("All vouchers submitted successfully!");
