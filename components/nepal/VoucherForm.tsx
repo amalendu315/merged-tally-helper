@@ -361,9 +361,6 @@ export default function NepalVoucherForm() {
         const purchasePayload = preparePurchaseData(batch, exchangeRate);
         const salesPayload = prepareSalesData(batch, exchangeRate);
 
-        console.log("Purchase Payload", purchasePayload);
-        console.log("Sales Payload", salesPayload);
-
         //submit purchase with retry
         const purchaseResult = await submitWithRetry(
           purchasePayload,
