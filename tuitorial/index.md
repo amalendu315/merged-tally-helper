@@ -36,6 +36,7 @@ flowchart TD
     A3 -- "Renders controls" --> A6
     A6 -- "Displays/Updates selection" --> A5
     A8 -- "Uses UI components" --> A6
+```
 
 ## Chapters
 
