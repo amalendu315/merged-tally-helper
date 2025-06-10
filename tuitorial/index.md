@@ -11,29 +11,19 @@ data, track sync history, and display **upload progress**.
 
 ```mermaid
 flowchart TD
-    A0["Authentication System
-"]
-    A1["Database Access
-"]
-    A2["External API Integration
-"]
-    A3["Voucher Data Logic
-"]
-    A4["Voucher Sync Logging
-"]
-    A5["Voucher Selection State
-"]
-    A6["User Interface (ShadCN/Tailwind)
-"]
-    A7["Regional Routing & Access Control
-"]
-    A8["Upload Progress Modal
-"]
-    A9["Environment Configuration
-"]
-    A0 -- "Authenticates user" --> A1
+    A0["Authentication System"]
+    A7["Regional Routing & Access Control"]
+    A1["Database Access"]
+    A2["External API Integration"]
+    A3["Voucher Data Logic"]
+    A4["Voucher Sync Logging"]
+    A5["Voucher Selection State"]
+    A6["User Interface (ShadCN/Tailwind)"]
+    A8["Upload Progress Modal"]
+    A9["Environment Configuration"]
+    A0 -- "Authenticates user" --> A7
     A0 -- "Reads secret" --> A9
-    A7 -- "Checks user region" --> A0
+    A7 -- "Checks user region" --> A3
     A7 -- "Renders pages" --> A6
     A1 -- "Reads credentials" --> A9
     A4 -- "Stores/Retrieves logs" --> A1
@@ -46,7 +36,6 @@ flowchart TD
     A3 -- "Renders controls" --> A6
     A6 -- "Displays/Updates selection" --> A5
     A8 -- "Uses UI components" --> A6
-```
 
 ## Chapters
 
