@@ -59,7 +59,7 @@ export default function VoucherList({ vouchers }: VoucherListProps) {
         countryLower === "nepal" ||
         countryMainLower === "nepal" ||
         countryID === 4 ||
-        stateLower.includes("province");
+        stateLower.includes("Province");
 
       const isOther =
         (!countryLower &&

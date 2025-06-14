@@ -95,7 +95,7 @@ export default function NepalVoucherForm() {
             (country === "nepal" ||
               main === "nepal" ||
               v.CountryID === 4 ||
-              state.includes("province"))
+              state.includes("Province"))
           );
         })
         .sort((a, b) => a.InvoiceNo - b.InvoiceNo);
