@@ -93,9 +93,7 @@ export default function NepalVoucherForm() {
             v.Types === "Invoice" &&
             !testKeywords.some((keyword) => accountName.includes(keyword)) &&
             (country === "nepal" ||
-              main === "nepal" ||
-              v.CountryID === 4 ||
-              state.includes("Province"))
+              v.CountryID === 4 )
           );
         })
         .sort((a, b) => a.InvoiceNo - b.InvoiceNo);
@@ -127,6 +125,7 @@ export default function NepalVoucherForm() {
       : vouchers;
 
     if (!selected.length) return toast.error("No selected vouchers to export.");
+    
 
     const formatted = selected.map((v) => ({
       InvoiceNo: v.InvoiceNo,
@@ -134,6 +133,8 @@ export default function NepalVoucherForm() {
       PNR: v.Pnr,
       Pax: v.pax,
       Account: v.AccountName,
+      Country: v.Country,
+      CountryID: v.CountryID,
       FinalRate: v.FinalRate,
       Total: v.FinalRate * v.pax,
     }));

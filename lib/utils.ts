@@ -12,9 +12,7 @@ export const isNepalVoucher = (voucher: any) => {
 
   return (
     country === "nepal" ||
-    countryMain === "nepal" ||
-    voucher.CountryID === 4 ||
-    state.includes("province")
+    voucher.CountryID === 4
   );
 };
 

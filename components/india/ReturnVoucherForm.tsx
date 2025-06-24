@@ -53,9 +53,7 @@ export default function ReturnVoucherForm() {
     const state = v.State?.toLowerCase() || "";
     return (
       country === "nepal" ||
-      main === "nepal" ||
-      v.CountryID === 4 ||
-      state.includes("province")
+      v.CountryID === 4 
     );
   };
 
