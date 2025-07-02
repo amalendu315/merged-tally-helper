@@ -349,84 +349,84 @@ export default function NepalVoucherForm() {
         return;
       }
 
-      // let successfulUploads = 0;
-      // let failedUploads = 0;
-      // let totalRetries = 0;
+      let successfulUploads = 0;
+      let failedUploads = 0;
+      let totalRetries = 0;
 
-      // const batchSize = 50;
+      const batchSize = 50;
 
-      // setUploadStats({
-      //   total: selected.length * 2, // because purchase + sales per voucher
-      //   successful: 0,
-      //   failed: 0,
-      //   retried: 0,
-      // });
+      setUploadStats({
+        total: selected.length * 2, // because purchase + sales per voucher
+        successful: 0,
+        failed: 0,
+        retried: 0,
+      });
 
-      // for (let i = 0; i < selected.length; i += batchSize) {
-      //   const batch = selected.slice(i, i + batchSize);
+      for (let i = 0; i < selected.length; i += batchSize) {
+        const batch = selected.slice(i, i + batchSize);
 
-      //   const purchasePayload = preparePurchaseData(batch, exchangeRate);
-      //   const salesPayload = prepareSalesData(batch, exchangeRate);
+        const purchasePayload = preparePurchaseData(batch, exchangeRate);
+        const salesPayload = prepareSalesData(batch, exchangeRate);
 
-      //   //submit purchase with retry
-      //   const purchaseResult = await submitWithRetry(
-      //     purchasePayload,
-      //     "purchase"
-      //   );
-      //   // // update stats immediately
-      //   if (purchaseResult.success) successfulUploads += purchasePayload.length;
-      //   else failedUploads += purchasePayload.length;
-      //   totalRetries += purchaseResult.retries;
+        //submit purchase with retry
+        const purchaseResult = await submitWithRetry(
+          purchasePayload,
+          "purchase"
+        );
+        // // update stats immediately
+        if (purchaseResult.success) successfulUploads += purchasePayload.length;
+        else failedUploads += purchasePayload.length;
+        totalRetries += purchaseResult.retries;
 
-      //   setUploadStats({
-      //     total: selected.length * 2,
-      //     successful: successfulUploads,
-      //     failed: failedUploads,
-      //     retried: totalRetries,
-      //   });
+        setUploadStats({
+          total: selected.length * 2,
+          successful: successfulUploads,
+          failed: failedUploads,
+          retried: totalRetries,
+        });
 
-      //   // // submit sales with retry
-      //   const salesResult = await submitWithRetry(salesPayload, "sale");
-      //   if (salesResult.success) successfulUploads += salesPayload.length;
-      //   else failedUploads += salesPayload.length;
-      //   totalRetries += salesResult.retries;
+        // // submit sales with retry
+        const salesResult = await submitWithRetry(salesPayload, "sale");
+        if (salesResult.success) successfulUploads += salesPayload.length;
+        else failedUploads += salesPayload.length;
+        totalRetries += salesResult.retries;
 
-      //   setUploadStats({
-      //     total: selected.length * 2,
-      //     successful: successfulUploads,
-      //     failed: failedUploads,
-      //     retried: totalRetries,
-      //   });
-      // }
+        setUploadStats({
+          total: selected.length * 2,
+          successful: successfulUploads,
+          failed: failedUploads,
+          retried: totalRetries,
+        });
+      }
 
-      // //stop updating stats if all are unsuccessful
-      // if (failedUploads === selected.length * 2) {
-      //   toast.error("All vouchers failed to push");
-      //   setUploading(false);
-      //   return;
-      // }
-      // // // Update sync log metadata on backend
-      // const currentDate = new Date().toISOString().split("T")[0];
-      // const body = {
-      //   region: "nepal",
-      //   voucher_type: "sales",
-      //   submission_date: currentDate,
-      //   last_updated_date: selected.at(-1)?.SaleEntryDate?.split("T")[0] || "",
-      //   start_date: dateRange.start,
-      //   end_date: dateRange.end,
-      //   start_voucher: selected.at(0)?.InvoiceNo || 0,
-      //   end_voucher: selected.at(-1)?.InvoiceNo || 0,
-      //   last_voucher_number: lastVoucherRef.current, // <--- use latest from ref
-      // };
+      //stop updating stats if all are unsuccessful
+      if (failedUploads === selected.length * 2) {
+        toast.error("All vouchers failed to push");
+        setUploading(false);
+        return;
+      }
+      // // Update sync log metadata on backend
+      const currentDate = new Date().toISOString().split("T")[0];
+      const body = {
+        region: "nepal",
+        voucher_type: "sales",
+        submission_date: currentDate,
+        last_updated_date: selected.at(-1)?.SaleEntryDate?.split("T")[0] || "",
+        start_date: dateRange.start,
+        end_date: dateRange.end,
+        start_voucher: selected.at(0)?.InvoiceNo || 0,
+        end_voucher: selected.at(-1)?.InvoiceNo || 0,
+        last_voucher_number: lastVoucherRef.current, // <--- use latest from ref
+      };
       
 
-      // await fetch("/api/sync-log", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(body),
-      // });
+      await fetch("/api/sync-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-      // setUploading(false);
+      setUploading(false);
 
       toast.success("All vouchers submitted successfully!");
 
