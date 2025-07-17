@@ -92,12 +92,12 @@ export default function NepalVoucherForm() {
           return (
             v.Types === "Invoice" &&
             !testKeywords.some((keyword) => accountName.includes(keyword)) &&
-            (country === "nepal" ||
-              v.CountryID === 4 )
+            ((v.FromSector === "KTM" && country === "nepal") ||
+              v.CountryID === 4)
           );
         })
         .sort((a, b) => a.InvoiceNo - b.InvoiceNo);
-
+      console.log("Fetched vouchers:", sorted);
       setVouchers(sorted);
       setSelectedInvoiceNos([]);
 
