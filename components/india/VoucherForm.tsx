@@ -126,6 +126,7 @@ export default function IndiaVoucherForm() {
         {
           lineno: 1,
           ledgerName: isNepalVoucher(v) ? "Air IQ Nepal" : v.AccountName,
+          ledgerAlias: isNepalVoucher(v) ? "AQNP2025" : v.AccountID,
           ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
             v.CityName ?? ""
           } - ${v.Pin ?? ""}`,

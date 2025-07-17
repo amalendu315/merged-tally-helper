@@ -177,6 +177,7 @@ export default function ReturnVoucherForm() {
                 ledgerName: isNepalVoucher(v)
                   ? "Air IQ Nepal"
                   : v.AccountName ?? "Unknown Ledger",
+                ledgerAlias: isNepalVoucher(v) ? "AQNP2025" : v.AccountID,
                 ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
                   v.CityName ?? ""
                 } - ${v.Pin ?? ""}`,
