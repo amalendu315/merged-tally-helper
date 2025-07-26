@@ -183,12 +183,14 @@ export default function ReturnVoucherForm() {
                 } - ${v.Pin ?? ""}`,
                 amount: (v.FinalRate * v.pax).toFixed(2),
                 drCr: "dr",
+                description: [],
               },
               {
                 lineno: 2,
                 ledgerName: "Domestic Base Fare",
                 amount: (v.FinalRate * v.pax).toFixed(2),
                 drCr: "cr",
+                description: [],
               },
             ],
           };
