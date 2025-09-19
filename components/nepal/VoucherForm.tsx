@@ -221,7 +221,7 @@ export default function NepalVoucherForm() {
       ).toFixed(2);
 
       return {
-        branchName: "TRAVEL IQ NEPAL PVT LTD",
+        branchName: "AirIQ Nepal",
         vouchertype: "Purchase",
         voucherno: `AQNP/${v.InvoiceNo}`,
         voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
@@ -259,7 +259,7 @@ export default function NepalVoucherForm() {
       );
 
       return {
-        branchName: "TRAVEL IQ NEPAL PVT LTD",
+        branchName: "AirIQ Nepal",
         vouchertype: "Sales",
         voucherno: formattedVoucherNumber,
         voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
