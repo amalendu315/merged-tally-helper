@@ -2,10 +2,11 @@ import axios from "axios";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
-import { salesURL, authorization, cookie } from "@/constants";
+import { authorization, cookie } from "@/constants";
 import { authOptions } from "@/lib/authOptions";
 
 export async function GET(request: Request) {
+    const salesURL = "https://airiqvendorapi.azurewebsites.net/InvoiceList1"
   try {
     const session = await getServerSession(authOptions);
     const user_id = session?.user?.id;

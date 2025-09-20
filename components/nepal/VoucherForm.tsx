@@ -90,9 +90,9 @@ export default function NepalVoucherForm() {
           const accountName = v.AccountName?.toLowerCase() || "";
 
           return (
-            v.Types === "Invoice" &&
+            (v.Types === "Invoice" || v.Types === "ApiSupInvoice" || v.Types === "SupInvoice") &&
             !testKeywords.some((keyword) => accountName.includes(keyword)) &&
-            ((v.FromSector === "KTM" && country === "nepal") ||
+            ((v.FromSector === "KTM" && country.toLowerCase() === "nepal") ||
               v.CountryID === 4)
           );
         })
