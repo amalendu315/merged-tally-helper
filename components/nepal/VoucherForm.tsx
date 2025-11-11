@@ -249,48 +249,79 @@ export default function NepalVoucherForm() {
 
   // Prepare Sales vouchers data batch & update voucher numbering state
   const prepareSalesData = (entries: any[], exchangeRate: number) => {
-    const salesData = entries.map((v) => {
-      lastVoucherRef.current += 1;
-      const formattedVoucherNumber = `AQNS/${lastVoucherRef.current
-        .toString()
-        .padStart(lastVoucherRef.current >= 1000 ? 4 : 3, "0")}`;
-      const convertedAmountNPR = (v.FinalRate * v.pax * exchangeRate).toFixed(
-        2
-      );
+    // const salesData = entries.map((v) => {
+    //   lastVoucherRef.current += 1;
+    //   const formattedVoucherNumber = `AQNS/${lastVoucherRef.current
+    //     .toString()
+    //     .padStart(lastVoucherRef.current >= 1000 ? 4 : 3, "0")}`;
+    //   const convertedAmountNPR = (v.FinalRate * v.pax * exchangeRate).toFixed(
+    //     2
+    //   );
+    //
+    //   return {
+    //     branchName: "AirIQ Nepal",
+    //     vouchertype: "Sales",
+    //     voucherno: formattedVoucherNumber,
+    //     voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
+    //     narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}, AIRLINE_CODE :- ${v.AirlineCode}, SECTOR :- ${v.FromSector} ${v.ToSectors}`,
+    //     ledgerAllocation: [
+    //       {
+    //         lineno: 1,
+    //         ledgerName: v.AccountName,
+    //         ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
+    //           v.CityName ?? ""
+    //         } - ${v.Pin ?? ""}`,
+    //         amount: convertedAmountNPR,
+    //         drCr: "dr",
+    //         description: [],
+    //       },
+    //       {
+    //         lineno: 2,
+    //         ledgerName: "Domestic Base Fare",
+    //         amount: convertedAmountNPR,
+    //         drCr: "cr",
+    //         description: [
+    //           v.AirlineCode,
+    //           "Sector",
+    //           `${v.FromSector} ${v.ToSectors}`,
+    //         ],
+    //       },
+    //     ],
+    //   };
+    // });
+    //
+    // return salesData;
+      return entries.map((v) => {
+              const convertedAmountNPR = (v.FinalRate * v.pax * exchangeRate).toFixed(2);
+              return {
+                   // helper fields for server-side numbering (server strips them before cloud)
+                    region: "nepal",
+                   vouchertype: "Sales",
+                    idempotencyKey: `nepal:sales:${v.Prefix}-${v.SaleID}`, // stable per voucher
 
-      return {
-        branchName: "AirIQ Nepal",
-        vouchertype: "Sales",
-        voucherno: formattedVoucherNumber,
-        voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
-        narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}, AIRLINE_CODE :- ${v.AirlineCode}, SECTOR :- ${v.FromSector} ${v.ToSectors}`,
-        ledgerAllocation: [
-          {
-            lineno: 1,
-            ledgerName: v.AccountName,
-            ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${
-              v.CityName ?? ""
-            } - ${v.Pin ?? ""}`,
-            amount: convertedAmountNPR,
-            drCr: "dr",
-            description: [],
-          },
-          {
-            lineno: 2,
-            ledgerName: "Domestic Base Fare",
-            amount: convertedAmountNPR,
-            drCr: "cr",
-            description: [
-              v.AirlineCode,
-              "Sector",
-              `${v.FromSector} ${v.ToSectors}`,
-            ],
-          },
-        ],
-      };
-    });
-
-    return salesData;
+                       branchName: "AirIQ Nepal",
+                    // voucherno:  <-- DO NOT SEND (server will assign)
+                       voucherdate: v.SaleEntryDate?.split("T")[0].replace(/-/g, "/") || "",
+                    narration: `${v.Prefix}-${v.SaleID}, PNR :- ${v.Pnr}, PAX :- ${v.pax}, AIRLINE_CODE :- ${v.AirlineCode}, SECTOR :- ${v.FromSector} ${v.ToSectors}`,
+                    ledgerAllocation: [
+                     {
+                       lineno: 1,
+                        ledgerName: v.AccountName,
+                        ledgerAddress: `${v.Add1 ?? ""}, ${v.Add2 ?? ""}, ${v.CityName ?? ""} - ${v.Pin ?? ""}`,
+                        amount: convertedAmountNPR,
+                        drCr: "dr",
+                        description: [],
+                     },
+                  {
+                    lineno: 2,
+                        ledgerName: "Domestic Base Fare",
+                        amount: convertedAmountNPR,
+                        drCr: "cr",
+                        description: [v.AirlineCode, "Sector", `${v.FromSector} ${v.ToSectors}`],
+                      },
+                ],
+              };
+           });
   };
   
 
@@ -367,36 +398,47 @@ export default function NepalVoucherForm() {
 
         const purchasePayload = preparePurchaseData(batch, exchangeRate);
         const salesPayload = prepareSalesData(batch, exchangeRate);
-
+        console.log(purchasePayload, salesPayload);
+          // submit sales (server will assign serial vouchernos)
+            const salesResult = await submitWithRetry(salesPayload, "sale");
+            if (salesResult.success) successfulUploads += salesPayload.length;
+            else failedUploads += salesPayload.length;
+           totalRetries += salesResult.retries;
+            setUploadStats({
+                  total: selected.length * 2,
+                  successful: successfulUploads,
+                  failed: failedUploads,
+                  retried: totalRetries,
+                });
         //submit purchase with retry
-        const purchaseResult = await submitWithRetry(
-          purchasePayload,
-          "purchase"
-        );
-        // // update stats immediately
-        if (purchaseResult.success) successfulUploads += purchasePayload.length;
-        else failedUploads += purchasePayload.length;
-        totalRetries += purchaseResult.retries;
-
-        setUploadStats({
-          total: selected.length * 2,
-          successful: successfulUploads,
-          failed: failedUploads,
-          retried: totalRetries,
-        });
-
-        // // submit sales with retry
-        const salesResult = await submitWithRetry(salesPayload, "sale");
-        if (salesResult.success) successfulUploads += salesPayload.length;
-        else failedUploads += salesPayload.length;
-        totalRetries += salesResult.retries;
-
-        setUploadStats({
-          total: selected.length * 2,
-          successful: successfulUploads,
-          failed: failedUploads,
-          retried: totalRetries,
-        });
+        // const purchaseResult = await submitWithRetry(
+        //   purchasePayload,
+        //   "purchase"
+        // );
+        // // // update stats immediately
+        // if (purchaseResult.success) successfulUploads += purchasePayload.length;
+        // else failedUploads += purchasePayload.length;
+        // totalRetries += purchaseResult.retries;
+        //
+        // setUploadStats({
+        //   total: selected.length * 2,
+        //   successful: successfulUploads,
+        //   failed: failedUploads,
+        //   retried: totalRetries,
+        // });
+        //
+        // // // submit sales with retry
+        // const salesResult = await submitWithRetry(salesPayload, "sale");
+        // if (salesResult.success) successfulUploads += salesPayload.length;
+        // else failedUploads += salesPayload.length;
+        // totalRetries += salesResult.retries;
+        //
+        // setUploadStats({
+        //   total: selected.length * 2,
+        //   successful: successfulUploads,
+        //   failed: failedUploads,
+        //   retried: totalRetries,
+        // });
       }
 
       //stop updating stats if all are unsuccessful
@@ -418,7 +460,7 @@ export default function NepalVoucherForm() {
         end_voucher: selected.at(-1)?.InvoiceNo || 0,
         last_voucher_number: lastVoucherRef.current, // <--- use latest from ref
       };
-      
+
 
       await fetch("/api/sync-log", {
         method: "POST",
