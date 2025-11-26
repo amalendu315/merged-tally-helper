@@ -146,7 +146,7 @@ export async function POST(request: Request) {
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { idempotencyKey: _k, region: _r, vouchertype: _t, ...clean } = item;
                     const payload = { ...clean, voucherno: reused };
-
+                    console.log({data:[payload]})
                     const resp = await axios.post(
                         saleCloudURL,
                         { data: [payload] },
