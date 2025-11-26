@@ -145,11 +145,11 @@ export async function POST(request: Request) {
                     // Build STRICT cloud payload: strip helper fields
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { idempotencyKey: _k, region: _r, vouchertype: _t, ...clean } = item;
-                    const payload = [{ ...clean, voucherno: reused }];
+                    const payload = { ...clean, voucherno: reused };
 
                     const resp = await axios.post(
                         saleCloudURL,
-                        { data: payload },
+                        { data: [payload] },
                         { headers: { "Content-Type": "application/json", Authtoken: saleCloudAuthToken } }
                     );
 
@@ -176,11 +176,11 @@ export async function POST(request: Request) {
                     // STRICT cloud payload: strip helper fields
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { idempotencyKey: _k2, region: _r2, vouchertype: _t2, ...clean } = item;
-                    const payload = [{ ...clean, voucherno }];
+                    const payload = { ...clean, voucherno };
 
                     const resp = await axios.post(
                         saleCloudURL,
-                        { data: payload },
+                        { data: [payload] },
                         { headers: { "Content-Type": "application/json", Authtoken: saleCloudAuthToken } }
                     );
 
