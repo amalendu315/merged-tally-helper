@@ -410,22 +410,22 @@ export default function NepalVoucherForm() {
                   retried: totalRetries,
                 });
         //submit purchase with retry
-         //const purchaseResult = await submitWithRetry(
-          // purchasePayload,
-          // "purchase"
-        // );
+         const purchaseResult = await submitWithRetry(
+          purchasePayload,
+          "purchase"
+        );
         // update stats immediately
-         //if (purchaseResult.success) successfulUploads += purchasePayload.length;
-         //else failedUploads += purchasePayload.length;
-         //totalRetries += purchaseResult.retries;
-        
-         //setUploadStats({
-           //total: selected.length * 2,
-           //successful: successfulUploads,
-           //failed: failedUploads,
-           //retried: totalRetries,
-         //});
-        //
+         if (purchaseResult.success) successfulUploads += purchasePayload.length;
+         else failedUploads += purchasePayload.length;
+         totalRetries += purchaseResult.retries;
+
+         setUploadStats({
+           total: selected.length * 2,
+           successful: successfulUploads,
+           failed: failedUploads,
+           retried: totalRetries,
+         });
+
         // // // submit sales with retry
         // const salesResult = await submitWithRetry(salesPayload, "sale");
         // if (salesResult.success) successfulUploads += salesPayload.length;
@@ -441,11 +441,11 @@ export default function NepalVoucherForm() {
       }
 
       //stop updating stats if all are unsuccessful
-      //if (failedUploads === selected.length * 2) {
-        //toast.error("All vouchers failed to push");
-        //setUploading(false);
-        //return;
-      //}
+      if (failedUploads === selected.length * 2) {
+        toast.error("All vouchers failed to push");
+        setUploading(false);
+        return;
+      }
       // // Update sync log metadata on backend
       const currentDate = new Date().toISOString().split("T")[0];
       const body = {
