@@ -359,7 +359,7 @@ export async function POST(request: Request) {
                     (resp.data[0]?.statuscode === "101" || resp.data[0]?.statuscode === 101);
 
                 if (!ok) {
-                    const msg = resp?.data?.[0]?.statusmessage || resp?.data?.data?.[0]?.statusmessage || "Cloud rejected";
+                    const msg = resp?.data[0]?.statusmessage || resp?.data[0]?.statusmessage || "Cloud rejected";
                     throw new Error(msg);
                 }
 
