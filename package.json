@@ -18,7 +18,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.509.0",
     "mssql": "^11.0.1",
-    "next": "15.3.2",
+    "next": "15.3.8",
     "next-auth": "^4.24.11",
     "react": "^19.0.0",
     "react-datepicker": "^8.3.0",
