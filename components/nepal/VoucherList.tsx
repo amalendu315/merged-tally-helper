@@ -36,64 +36,78 @@ export default function VoucherList({ vouchers }: VoucherListProps) {
   const indexOfFirstVoucher = indexOfLastVoucher - vouchersPerPage;
 
   const filteredVouchers = useMemo(() => {
-    return vouchers.filter((voucher) => {
-      const countryLower = voucher.Country?.toLowerCase() || "";
-      const stateLower = voucher.State?.toLowerCase() || "";
-      const cityLower = voucher.CityName?.toLowerCase() || "";
-      const countryMainLower = voucher.CountryMain?.toLowerCase() || "";
-      const countryID = voucher.CountryID;
-      const countryMainID = voucher.CityEntryMainID;
+    return vouchers
+      .filter((voucher) => {
+        const countryLower = voucher.Country?.toLowerCase() || "";
+        const stateLower = voucher.State?.toLowerCase() || "";
+        const cityLower = voucher.CityName?.toLowerCase() || "";
+        const countryMainLower = voucher.CountryMain?.toLowerCase() || "";
+        const countryID = voucher.CountryID;
+        const countryMainID = voucher.CityEntryMainID;
 
-      if (countryID === 4) voucher.Country = "Nepal";
-      if (!voucher.Country && countryMainLower === "india")
-        voucher.Country = "India";
+        if (countryID === 4) voucher.Country = "Nepal";
+        if (!voucher.Country && countryMainLower === "india")
+          voucher.Country = "India";
 
-      const isIndia =
-        countryLower === "india" ||
-        countryMainLower === "india" ||
-        countryID === 1 ||
-        countryMainID === 1 ||
-        (!countryLower && countryMainLower === "india");
+        const isIndia =
+          countryLower === "india" ||
+          countryMainLower === "india" ||
+          countryID === 1 ||
+          countryMainID === 1 ||
+          (!countryLower && countryMainLower === "india");
 
-      const isNepal =
-        countryLower === "nepal" ||
-        countryMainLower === "nepal" ||
-        countryID === 4 ||
-        stateLower.includes("province");
+        const isNepal =
+          countryLower === "nepal" ||
+          countryMainLower === "nepal" ||
+          countryID === 4 ||
+          stateLower.includes("province");
 
-      const isOther =
-        (!countryLower &&
-          !countryID &&
-          !countryMainLower &&
-          !stateLower &&
-          !cityLower) ||
-        (!voucher.Country &&
-          !voucher.CountryID &&
-          !voucher.CountryMain &&
-          !voucher.CityEntryMainID &&
-          !voucher.State &&
-          !voucher.CityName);
+        const isOther =
+          (!countryLower &&
+            !countryID &&
+            !countryMainLower &&
+            !stateLower &&
+            !cityLower) ||
+          (!voucher.Country &&
+            !voucher.CountryID &&
+            !voucher.CountryMain &&
+            !voucher.CityEntryMainID &&
+            !voucher.State &&
+            !voucher.CityName);
 
-      const matchesCountry =
-        filterCountry === "All" ||
-        (filterCountry === "India" && isIndia) ||
-        (filterCountry === "Nepal" && isNepal) ||
-        (filterCountry === "Other" && isOther);
+        const matchesCountry =
+          filterCountry === "All" ||
+          (filterCountry === "India" && isIndia) ||
+          (filterCountry === "Nepal" && isNepal) ||
+          (filterCountry === "Other" && isOther);
 
-      const matchesInvoiceNumber =
-        filterInvoice === null || Number(voucher.InvoiceNo) === filterInvoice;
+        const matchesInvoiceNumber =
+          filterInvoice === null || Number(voucher.InvoiceNo) === filterInvoice;
 
-      const matchesDate =
-        !filterDate || isSameDay(parseISO(voucher.SaleEntryDate), filterDate);
+        const matchesDate =
+          !filterDate || isSameDay(parseISO(voucher.SaleEntryDate), filterDate);
 
-      const matchesPnr =
-        filterPnr === "" ||
-        voucher.Pnr?.toLowerCase().includes(filterPnr.toLowerCase());
+        const matchesPnr =
+          filterPnr === "" ||
+          voucher.Pnr?.toLowerCase().includes(filterPnr.toLowerCase());
 
-      return (
-        matchesCountry && matchesInvoiceNumber && matchesDate && matchesPnr
-      );
-    });
+        return (
+          matchesCountry && matchesInvoiceNumber && matchesDate && matchesPnr
+        );
+      })
+      .sort((a, b) => {
+        // 1. Convert ISO date strings to numerical timestamps
+        const dateA = new Date(a.SaleEntryDate).getTime();
+        const dateB = new Date(b.SaleEntryDate).getTime();
+
+        // 2. Sort chronologically by date
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+
+        // 3. Secondary Sort: Fallback to InvoiceNo if dates are identical
+        return Number(a.InvoiceNo) - Number(b.InvoiceNo);
+      });
   }, [vouchers, filterCountry, filterInvoice, filterDate, filterPnr]);
 
   const currentVouchers = useMemo(() => {
