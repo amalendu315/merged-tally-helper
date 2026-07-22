@@ -1,13 +1,14 @@
 "use client";
 
-import NepalVoucherForm from "@/components/nepal/VoucherForm";
-import DashboardLayout from "@/components/shared/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { VoucherSelectionProvider } from "@/context/VoucherSelectionContext";
-import { useSession } from "next-auth/react";
+import DashboardLayout from "@/components/shared/DashboardLayout";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import ReturnVoucherForm from "@/components/nepal/ReturnVoucherForm";
+import { useSession } from "next-auth/react";
+// import ReturnVoucherForm from "@/components/india/ReturnVoucherForm";
 
-export default function NepalDashboard() {
+export default function NepalInvoiceReturnPage() {
   const { data } = useSession();
   if (data?.user?.region !== "nepal") {
     return (
@@ -28,19 +29,18 @@ export default function NepalDashboard() {
   return (
     <VoucherSelectionProvider>
       <DashboardLayout>
-        <h1 className="text-2xl font-bold mb-2 text-center">
+        <h1 className="text-2xl font-bold text-center">
           Welcome, Nepal Admin 🇳🇵
         </h1>
-        <p className="text-gray-600 mb-4 text-center">
-          Track purchases and sales from Indian companies. Manage local vouchers
-          here.
+        <p className="text-gray-600">
+          Manage and push credit notes (return invoices) to Tally cloud.
         </p>
-        <div className="flex justify-end mb-4">
-          <Link href="/nepal/return">
-            <Button variant="outline">🔁 Go to Return Invoices</Button>
+        <div className="flex justify-end mb-4 text-center">
+          <Link href="/nepal">
+            <Button variant="outline">🔁 Go to Home</Button>
           </Link>
         </div>
-        <NepalVoucherForm />
+        <ReturnVoucherForm />
       </DashboardLayout>
     </VoucherSelectionProvider>
   );

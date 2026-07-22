@@ -90,13 +90,27 @@ export default function NepalVoucherForm() {
           const accountName = v.AccountName?.toLowerCase() || "";
 
           return (
-            (v.Types === "Invoice" || v.Types === "ApiSupInvoice" || v.Types === "SupInvoice") &&
+            (v.Types === "Invoice" ||
+              v.Types === "ApiSupInvoice" ||
+              v.Types === "SupInvoice") &&
             !testKeywords.some((keyword) => accountName.includes(keyword)) &&
             ((v.FromSector === "KTM" && country.toLowerCase() === "nepal") ||
               v.CountryID === 4)
           );
         })
-        .sort((a, b) => a.InvoiceNo - b.InvoiceNo);
+        .sort((a, b) => {
+          // 1. Convert SaleEntryDate to numerical timestamps for comparison
+          const dateA = new Date(a.SaleEntryDate).getTime();
+          const dateB = new Date(b.SaleEntryDate).getTime();
+
+          // 2. Sort chronologically by date
+          if (dateA !== dateB) {
+            return dateA - dateB;
+          }
+
+          // 3. Fallback: If dates are identical, sort by InvoiceNo to ensure stable ordering
+          return a.InvoiceNo - b.InvoiceNo;
+        });
       console.log("Fetched vouchers:", sorted);
       setVouchers(sorted);
       setSelectedInvoiceNos([]);
@@ -425,19 +439,6 @@ export default function NepalVoucherForm() {
            failed: failedUploads,
            retried: totalRetries,
          });
-
-        // // // submit sales with retry
-        // const salesResult = await submitWithRetry(salesPayload, "sale");
-        // if (salesResult.success) successfulUploads += salesPayload.length;
-        // else failedUploads += salesPayload.length;
-        // totalRetries += salesResult.retries;
-        //
-        // setUploadStats({
-        //   total: selected.length * 2,
-        //   successful: successfulUploads,
-        //   failed: failedUploads,
-        //   retried: totalRetries,
-        // });
       }
 
       //stop updating stats if all are unsuccessful
@@ -631,3 +632,6 @@ export default function NepalVoucherForm() {
     </>
   );
 }
+
+
+//nepal:sales:AQ-3722203

@@ -1,8 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
 
-import NextAuth, { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { getConnection } from "@/lib/db";
+import NextAuth from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
 // export const authOptions: NextAuthOptions = {

@@ -229,10 +229,11 @@ function formatVoucherNo(n: number) {
     return `AQNS/${n.toString().padStart(n >= 1000 ? 4 : 3, "0")}`;
 }
 
-// 1. GET CANDIDATE (Read the current number)
-async function getCandidateNumber(pool: any, region: string, voucherType: string) {
-    // Ensure counter row exists. We use ISNULL to handle empty strings/nulls safely.
-    await pool.request()
+// --- 1. GET CANDIDATE (read current, DON'T commit yet) ---
+async function getCandidateNumber(pool: sql.ConnectionPool, region: string, voucherType: string) {
+    // Ensure counter row exists (FiscalYear '' or NULL for safety)
+    await pool
+        .request()
         .input("region", region)
         .input("type", voucherType)
         .query(`
@@ -244,13 +245,14 @@ async function getCandidateNumber(pool: any, region: string, voucherType: string
       VALUES (@region, @type, '', 0);
     `);
 
-    // Read current
-    const r = await pool.request()
+    // Read current with row locks to avoid weird races inside this session
+    const r = await pool
+        .request()
         .input("region", region)
         .input("type", voucherType)
         .query(`
       SELECT CurrentNo
-      FROM dbo.VoucherCounters
+      FROM dbo.VoucherCounters WITH (UPDLOCK, HOLDLOCK)
       WHERE Region=@region AND VoucherType=@type AND (FiscalYear = '' OR FiscalYear IS NULL);
     `);
 
@@ -261,14 +263,20 @@ async function getCandidateNumber(pool: any, region: string, voucherType: string
     return { next, formatted };
 }
 
-// 2. COMMIT NUMBER (Update the DB)
-async function commitNumber(pool: any, region: string, voucherType: string, next: number, idempotencyKey: string, voucherNo: string) {
-    // FIX: Use sql.Transaction instead of pool.Transaction
+// --- 2. COMMIT NUMBER (update DB + record idempotency) ---
+async function commitNumber(
+    pool: sql.ConnectionPool,
+    region: string,
+    voucherType: string,
+    next: number,
+    idempotencyKey: string,
+    voucherNo: string
+) {
+    // Correct mssql usage
     const tx = new sql.Transaction(pool);
     await tx.begin();
 
     try {
-        // FIX: Use sql.Request(tx) instead of pool.Request(tx)
         const req1 = new sql.Request(tx);
         const updateResult = await req1
             .input("region", region)
@@ -280,9 +288,11 @@ async function commitNumber(pool: any, region: string, voucherType: string, next
         WHERE Region=@region AND VoucherType=@type AND (FiscalYear = '' OR FiscalYear IS NULL);
       `);
 
-        // CRITICAL FIX: Check if the update actually happened
-        if (updateResult.rowsAffected[0] === 0) {
-            throw new Error(`CRITICAL: Failed to update voucher counter. Region: ${region}, Type: ${voucherType}`);
+        // Rock solid: make sure the counter row actually updated
+        if (!updateResult.rowsAffected || updateResult.rowsAffected[0] === 0) {
+            throw new Error(
+                `CRITICAL: Failed to update voucher counter. Region=${region}, Type=${voucherType}, Next=${next}`
+            );
         }
 
         const req2 = new sql.Request(tx);
@@ -297,87 +307,130 @@ async function commitNumber(pool: any, region: string, voucherType: string, next
       `);
 
         await tx.commit();
-        console.log(`✅ Database updated: ${voucherNo} (Counter: ${next})`);
+        console.log(`✅ DB commit: ${voucherNo} (counter -> ${next})`);
     } catch (e) {
         await tx.rollback();
-        console.error("❌ Database Commit Failed:", e);
+        console.error("❌ Database commit failed:", e);
         throw e;
     }
 }
 
+type ResultRow = {
+    idempotencyKey: string;
+    ok: boolean;
+    voucherno?: string;
+    message?: string;
+};
+
 export async function POST(request: Request) {
-    const pool = await getConnection();
+    const pool = (await getConnection()) as sql.ConnectionPool;
 
     try {
         const { data } = await request.json();
-        const results: Array<{ idempotencyKey: string; ok: boolean; voucherno?: string; message?: string }> = [];
+        const results: ResultRow[] = [];
 
-        // Process sequentially (one by one) to ensure numbering order
+        // Process sequentially within this request to preserve order
         for (const item of data) {
             const region = item.region || "nepal";
             const voucherType = item.vouchertype || "Sales";
-            const idempotencyKey = item.idempotencyKey;
+            const idempotencyKey: string | undefined = item.idempotencyKey;
 
             if (!idempotencyKey) {
-                results.push({ idempotencyKey: "(missing)", ok: false, message: "idempotencyKey required" });
+                results.push({
+                    idempotencyKey: "(missing)",
+                    ok: false,
+                    message: "idempotencyKey required",
+                });
                 continue;
             }
 
             try {
-                // A. Check Idempotency (Already processed?)
-                const check = await pool.request()
+                // A. Idempotency check: if present, we assume it was already fully successful.
+                const check = await pool
+                    .request()
                     .input("key", idempotencyKey)
                     .query(`SELECT VoucherNo FROM dbo.VoucherIdempotency WHERE IdempotencyKey=@key`);
 
                 if (check.recordset.length) {
                     const reused = check.recordset[0].VoucherNo;
-                    console.log(`♻️ Skipping cloud, already exists: ${reused}`);
+                    console.log(`♻️ Idempotent hit, skipping cloud for ${idempotencyKey} → ${reused}`);
                     results.push({ idempotencyKey, ok: true, voucherno: reused });
                     continue;
                 }
 
-                // B. Get Candidate Number (From DB)
-                const cand = await getCandidateNumber(pool, region, voucherType);
-                const voucherno = cand.formatted;
+                // B. Serialize numbering across *all* app instances with applock
+                const lockName = `lock:${region}:${voucherType}`;
+                await pool
+                    .request()
+                    .input("name", lockName)
+                    .query(
+                        `EXEC sp_getapplock @Resource=@name, @LockMode='Exclusive', @LockOwner='Session', @LockTimeout=15000;`
+                    );
 
-                // C. Prepare Payload
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { idempotencyKey: _k2, region: _r2, ...clean } = item;
-                const payload = { ...clean, voucherno };
+                try {
+                    // C. Get candidate voucher number (NOT committed yet)
+                    const cand = await getCandidateNumber(pool, region, voucherType);
+                    const voucherno = cand.formatted;
 
-                console.log(`📤 Sending ${voucherno} to Cloud...`);
+                    // D. Prepare strict cloud payload (strip helper fields)
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { idempotencyKey: _k, region: _r, ...clean } = item;
+                    const payload = { ...clean, voucherno };
 
-                // D. Send to Cloud
-                const resp = await axios.post(
-                    saleCloudURL,
-                    { data: [payload] },
-                    { headers: { "Content-Type": "application/json", Authtoken: saleCloudAuthToken } }
-                );
+                    console.log(`📤 Sending voucher ${voucherno} to cloud...`);
+                    // E. Call cloud (new behavior: correct handling)
+                    const resp = await axios.post(
+                        saleCloudURL,
+                        { data: [payload] },
+                        {
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authtoken: saleCloudAuthToken,
+                            },
+                        }
+                    );
 
-                const ok =
-                    Array.isArray(resp?.data) &&
-                    (resp.data[0]?.statuscode === "101" || resp.data[0]?.statuscode === 101);
+                    console.log("🌥 Cloud response status:", resp.status);
+                    console.log("🌥 Cloud response body:", JSON.stringify(resp.data, null, 2));
 
-                if (!ok) {
-                    const msg = resp?.data[0]?.statusmessage || resp?.data[0]?.statusmessage || "Cloud rejected";
-                    throw new Error(msg);
+                    const ok =
+                        Array.isArray(resp?.data) &&
+                        (resp.data[0]?.statuscode === "101" || resp.data[0]?.statuscode === 101);
+
+                    if (!ok) {
+                        // NOTE: using the new-style shape you said is correct
+                        const msg =
+                            resp?.data?.[0]?.statusmessage ||
+                            resp?.data?.[0]?.StatusMessage ||
+                            "Cloud rejected";
+                        console.error("Cloud rejected voucher:", voucherno, "Reason:", msg);
+                        throw new Error(msg);
+                    }
+
+                    // F. Commit number + idempotency AFTER cloud success
+                    await commitNumber(pool, region, voucherType, cand.next, idempotencyKey, voucherno);
+
+                    results.push({ idempotencyKey, ok: true, voucherno });
+                } finally {
+                    // Always release applock
+                    await pool
+                        .request()
+                        .input("name", `lock:${region}:${voucherType}`)
+                        .query(`EXEC sp_releaseapplock @Resource=@name, @LockOwner='Session';`);
                 }
-
-                // E. Commit Number (Update DB)
-                // If this fails, it throws, and we catch it below (allowing retry later)
-                await commitNumber(pool, region, voucherType, cand.next, idempotencyKey, voucherno);
-
-                results.push({ idempotencyKey, ok: true, voucherno });
-
             } catch (err: any) {
-                console.error(`💥 Error processing ${idempotencyKey}:`, err.message);
-                results.push({ idempotencyKey, ok: false, message: err?.message || "failed" });
+                console.error(`💥 Error processing ${idempotencyKey}:`, err?.message, err);
+                results.push({
+                    idempotencyKey,
+                    ok: false,
+                    message: err?.message || "failed",
+                });
             }
         }
 
         return NextResponse.json({ results }, { status: 200 });
     } catch (error) {
-        console.error("Global Error:", error);
+        console.error("Global Error (sales vouchers):", error);
         return NextResponse.json({ error: "Failed to submit sales vouchers" }, { status: 500 });
     }
 }
