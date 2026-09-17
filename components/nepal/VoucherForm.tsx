@@ -243,7 +243,7 @@ export default function NepalVoucherForm() {
         ledgerAllocation: [
           {
             lineno: 1,
-            ledgerName: "Air IQ",
+            ledgerName: "AirIQ 365",
             ledgerAddress: "Sevoke Road, Siliguri, West Bengal - 734001",
             amount: convertedPurchaseAmountNPR,
             drCr: "cr",
