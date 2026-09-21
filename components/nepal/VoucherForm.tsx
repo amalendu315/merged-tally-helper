@@ -72,7 +72,7 @@ export default function NepalVoucherForm() {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/sales?startDate=${dateRange.start}&endDate=${dateRange.end}`
+        `/tally/api/sales?startDate=${dateRange.start}&endDate=${dateRange.end}`
       );
       const data = await response.json();
       if (!response.ok) {
@@ -204,7 +204,7 @@ export default function NepalVoucherForm() {
     let attempt = 0;
     while (attempt <= maxRetries) {
       try {
-        const response = await fetch(`/api/nepal/${type}`, {
+        const response = await fetch(`/tally/api/nepal/${type}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: payload }),
