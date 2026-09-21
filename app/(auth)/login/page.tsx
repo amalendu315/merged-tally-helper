@@ -20,7 +20,7 @@ export default function LoginPage() {
     });
 
     if (res?.ok) {
-      router.push("/");
+      router.push("/tally");
     } else {
       setError("Invalid credentials. Please try again.");
     }

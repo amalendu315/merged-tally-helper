@@ -35,7 +35,7 @@ export default function ReturnVoucherForm() {
   useEffect(() => {
     const loadSyncMeta = async () => {
       try {
-        const res = await fetch("/api/sync-log?region=nepal&type=return");
+        const res = await fetch("/tally/api/sync-log?region=nepal&type=return");
         if (res.status === 200) {
           const result = await res.json();
           setSyncMeta(result.data);
@@ -210,7 +210,7 @@ export default function ReturnVoucherForm() {
         attempt = 1
       ): Promise<boolean> => {
         try {
-          const res = await fetch("/api/nepal/return-cloud", {
+          const res = await fetch("/tally/api/nepal/return-cloud", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ data: payload }),
@@ -275,7 +275,7 @@ export default function ReturnVoucherForm() {
         end_voucher: selected.at(-1)?.InvoiceNo,
       };
 
-      await fetch("/api/sync-log", {
+      await fetch("/tally/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

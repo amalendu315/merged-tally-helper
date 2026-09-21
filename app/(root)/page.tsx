@@ -8,17 +8,17 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
-    redirect("/login");
+    redirect("/tally/login");
   }
 
   const region = session.user.region;
 
   if (region === "india") {
-    redirect("/india");
+    redirect("/tally/india");
   } else if (region === "nepal") {
-    redirect("/nepal");
+    redirect("/tally/nepal");
   } else if(region === "all"){
-    redirect("/all");
+    redirect("/tally/all");
   } else {
     return (
       <p className="text-center mt-20 text-red-600 font-semibold">

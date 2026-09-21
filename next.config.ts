@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  basePath: "/tally",
   /* config options here */
   async rewrites() {
     return [

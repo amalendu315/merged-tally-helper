@@ -24,7 +24,7 @@ export default function AllVoucherForm() {
   useEffect(() => {
     const loadSyncMeta = async () => {
       try {
-        const res = await fetch("/api/sync-log?region=all&type=sales");
+        const res = await fetch("/tally/api/sync-log?region=all&type=sales");
         if (res.status === 200) {
           const result = await res.json();
           setSyncMeta(result.data);
@@ -177,7 +177,7 @@ export default function AllVoucherForm() {
         attempt = 1
       ): Promise<boolean> => {
         try {
-          const res = await fetch("/api/cloud", {
+          const res = await fetch("/tally/api/cloud", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ data: payload }),
@@ -221,7 +221,7 @@ export default function AllVoucherForm() {
         end_voucher: selected.at(-1)?.InvoiceNo,
       };
 
-      await fetch("/api/sync-log", {
+      await fetch("/tally/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

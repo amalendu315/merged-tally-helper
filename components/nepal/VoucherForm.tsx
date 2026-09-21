@@ -38,7 +38,7 @@ export default function NepalVoucherForm() {
   useEffect(() => {
     const loadSyncMeta = async () => {
       try {
-        const res = await fetch("/api/sync-log?region=nepal&type=sales");
+        const res = await fetch("/tally/api/sync-log?region=nepal&type=sales");
         if (res.status === 200) {
           const result = await res.json();
           setSyncMeta(result.data);
@@ -462,7 +462,7 @@ export default function NepalVoucherForm() {
       };
 
 
-      await fetch("/api/sync-log", {
+      await fetch("/tally/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

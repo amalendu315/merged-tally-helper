@@ -137,7 +137,7 @@ export default function IndiaVoucherForm() {
     const loadSyncMeta = async () => {
       try {
         // Fetch the last sync log for India Sales
-        const res = await fetch("/api/sync-log?region=india&type=sales");
+        const res = await fetch("/tally/api/sync-log?region=india&type=sales");
         if (res.status === 200) {
           const result = await res.json();
           setSyncMeta(result.data); // Store the fetched log data in state
@@ -300,7 +300,7 @@ On the frontend, in the `handlePushToCloud` function (in `VoucherForm` component
       };
 
       // Call our internal API to save the sync log
-      await fetch("/api/sync-log", {
+      await fetch("/tally/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

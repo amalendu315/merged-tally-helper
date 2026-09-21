@@ -32,7 +32,7 @@ export default function ReturnVoucherForm() {
   useEffect(() => {
     const loadSyncMeta = async () => {
       try {
-        const res = await fetch("/api/sync-log?region=india&type=return");
+        const res = await fetch("/tally/api/sync-log?region=india&type=return");
         if (res.status === 200) {
           const result = await res.json();
           setSyncMeta(result.data);
@@ -66,7 +66,7 @@ export default function ReturnVoucherForm() {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/sales?startDate=${dateRange.start}&endDate=${dateRange.end}`
+        `/tally/api/sales?startDate=${dateRange.start}&endDate=${dateRange.end}`
       );
 
       const data = await response?.json();
@@ -202,7 +202,7 @@ export default function ReturnVoucherForm() {
         attempt = 1
       ): Promise<boolean> => {
         try {
-          const res = await fetch("/api/india/return-cloud", {
+          const res = await fetch("/tally/api/india/return-cloud", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ data: payload }),
@@ -267,7 +267,7 @@ export default function ReturnVoucherForm() {
         end_voucher: selected.at(-1)?.InvoiceNo,
       };
 
-      await fetch("/api/sync-log", {
+      await fetch("/tally/api/sync-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

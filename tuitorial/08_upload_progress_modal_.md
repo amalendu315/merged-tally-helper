@@ -293,7 +293,7 @@ Here's a simplified look at the relevant parts of `handlePushToCloud`:
 
       // 6. If overall push was successful, save the sync log (Chapter 6)
       const now = new Date().toISOString().split("T")[0];
-      await fetch("/api/sync-log", { /* ... */ });
+      await fetch("/tally/api/sync-log", { /* ... */ });
 
       // 7. Indicate upload finished and reset states
       toast.success("Vouchers pushed successfully!");
