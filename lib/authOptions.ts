@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
           .input("username", credentials.username)
           .input("password", credentials.password)
           .query(
-            "SELECT * FROM TallyUsers WHERE username = @username AND password = @password"
+            "SELECT * FROM TallyUsers WHERE username = @username AND password = @password",
           );
 
         const user = result.recordset[0];
@@ -52,6 +52,8 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
-    signIn: "/login",
+    signIn: "/tally/login",
+    signOut: "/tally",
+    error: "/tally/login", // Force errors back to your custom login page
   },
 };

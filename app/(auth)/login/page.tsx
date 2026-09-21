@@ -20,7 +20,7 @@ export default function LoginPage() {
     });
 
     if (res?.ok) {
-      router.push("/tally");
+      router.push("/");
     } else {
       setError("Invalid credentials. Please try again.");
     }
@@ -31,7 +31,7 @@ export default function LoginPage() {
       {/* Illustration */}
       <div className="flex items-center justify-center p-6 bg-blue-50 dark:bg-gray-800">
         <img
-          src="/illustrationlog.svg"
+          src="/tally/illustrationlog.svg"
           alt="Illustration"
           className="w-2/3 max-w-xs md:max-w-md lg:max-w-lg h-auto"
         />

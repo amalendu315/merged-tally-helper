@@ -10,5 +10,9 @@ export default function ClientSessionProvider({
   children: React.ReactNode;
   session: Session | null;
 }) {
-  return <SessionProvider session={session}>{children}</SessionProvider>;
+  return (
+    <SessionProvider session={session} basePath="/tally/api/auth">
+      {children}
+    </SessionProvider>
+  );
 }
